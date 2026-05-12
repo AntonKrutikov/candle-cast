@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import time
+
 import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
@@ -66,6 +68,7 @@ def render_chart(
     symbol: str,
     forecast_df: pd.DataFrame | None = None,
     tail: int = 120,
+    reveal: int | None = None,
 ) -> go.Figure:
     fig = go.Figure(
         data=[
@@ -85,13 +88,14 @@ def render_chart(
     )
 
     if forecast_df is not None and not forecast_df.empty:
+        shown = forecast_df if reveal is None else forecast_df.iloc[:reveal]
         fig.add_trace(
             go.Candlestick(
-                x=forecast_df.index,
-                open=forecast_df["open"],
-                high=forecast_df["high"],
-                low=forecast_df["low"],
-                close=forecast_df["close"],
+                x=shown.index,
+                open=shown["open"],
+                high=shown["high"],
+                low=shown["low"],
+                close=shown["close"],
                 name="Forecast",
                 increasing_line_color="#F0B90B",
                 decreasing_line_color="#7A4DFF",
@@ -187,9 +191,13 @@ with center:
         status_slot.empty()
 
         if forecast_df is not None:
-            chart_slot.plotly_chart(
-                render_chart(history, symbol, forecast_df), width="stretch"
-            )
+            step = 4
+            for i in range(step, len(forecast_df) + step, step):
+                chart_slot.plotly_chart(
+                    render_chart(history, symbol, forecast_df, reveal=i),
+                    width="stretch",
+                )
+                time.sleep(0.1)
             caption_slot.caption(
                 f"Loaded {len(history)} candles · last: "
                 f"{history.index[-1]:%Y-%m-%d %H:%M} UTC"
