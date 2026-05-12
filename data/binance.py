@@ -3,7 +3,7 @@ from __future__ import annotations
 import pandas as pd
 import requests
 
-BINANCE_KLINES_URL = "https://api.binance.com/api/v3/klines"
+BINANCE_KLINES_URL = "https://data-api.binance.vision/api/v3/klines"
 
 VALID_INTERVALS = {
     "1m", "3m", "5m", "15m", "30m",
