@@ -1,0 +1,12 @@
+[project]
+name = "candlecast"
+version = "0.1.0"
+description = "AI-powered price forecasts for crypto and stocks."
+requires-python = ">=3.12"
+dependencies = [
+    "pandas>=3.0.3",
+    "plotly>=6.7.0",
+    "requests>=2.34.0",
+    "streamlit>=1.57.0",
+    "yfinance>=1.3.0",
+]
