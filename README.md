@@ -2,7 +2,7 @@
 
 AI-powered price forecasts for crypto and stocks. Pick a ticker, click **Forecast**, and watch predicted candles draw themselves onto the chart next to the real history.
 
-![CandleCast screenshot](localhost_8501_.png)
+![CandleCast screenshot](screenshot.png)
 
 ## What it does
 
