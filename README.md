@@ -34,6 +34,12 @@ scripts/refresh_symbols.py # Regenerate the crypto symbol list
 
 Data fetchers return a shared normalized DataFrame (UTC-indexed, `open / high / low / close / volume` as float) so the chart and predictor consume one schema.
 
+## Reproducibility
+
+The underlying model is **sampling-based** — each forecast bar is drawn from a probability distribution, so the same inputs would otherwise yield a different forecast on every run. To keep results stable, `forecast.py` reseeds Python / NumPy / PyTorch RNGs to a fixed value before each prediction. Identical history in produces identical forecast out.
+
+If the latest live bar changes between runs, the forecast will (correctly) shift — determinism is keyed to the exact input candles, not the ticker.
+
 ## Disclaimer
 
 Forecasts are generated for research and educational purposes only. CandleCast does not provide financial advice or guarantee future price movement.

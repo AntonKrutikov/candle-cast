@@ -1,10 +1,13 @@
 from __future__ import annotations
 
 import os
+import random
 from typing import Final
 
+import numpy as np
 import pandas as pd
 import streamlit as st
+import torch
 
 from model import Kronos, KronosPredictor, KronosTokenizer
 
@@ -16,6 +19,7 @@ VARIANTS: Final[dict[str, dict]] = {
 
 DEFAULT_PRED_LEN: Final = 24
 DEFAULT_LOOKBACK: Final = 256
+SEED: Final = 0
 
 
 def _variant() -> dict:
@@ -48,6 +52,12 @@ def predict(
         [x.index[-1] + step * i for i in range(1, pred_len + 1)],
         name="timestamp",
     )
+
+    random.seed(SEED)
+    np.random.seed(SEED)
+    torch.manual_seed(SEED)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(SEED)
 
     pred = predictor.predict(
         df=x[["open", "high", "low", "close", "volume"]].reset_index(drop=True),
