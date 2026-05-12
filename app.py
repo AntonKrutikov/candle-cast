@@ -11,33 +11,46 @@ from data.yfinance_source import fetch_ohlcv as fetch_yfinance
 
 st.set_page_config(page_title="CandleCast", layout="wide")
 
+
 _primary = st.get_option("theme.primaryColor")
-with st.container(horizontal=True, vertical_alignment="center"):
+with st.container(
+    horizontal=True, vertical_alignment="center", horizontal_alignment="center"
+):
     st.image("assets/logo.svg", width=128)
     st.markdown(
         f'<h1 style="margin:0;padding:0;">Candle<span style="color:{_primary}">Cast</span></h1>',
         unsafe_allow_html=True,
     )
+st.header(":primary[AI-powered market forecasts in seconds]", text_alignment="center")
 st.caption(
-    "From ticker to forecast in seconds — AI-powered price predictions for crypto and stock markets."
+    "From ticker to forecast in seconds — AI-powered price predictions for crypto and stock markets.",
+    text_alignment="center",
 )
+
+st.container(height=24, border=False)
+
 
 CRYPTO_INTERVALS = ["15m", "1h", "4h", "1d"]
 STOCK_INTERVALS = ["30m", "1h", "1d"]
 
-col1, col2, col3, col4 = st.columns([1, 2, 1, 1], vertical_alignment="bottom")
-with col1:
-    asset_type = st.selectbox("Asset", ["Crypto", "Stock"])
-with col2:
-    symbols = load_crypto_symbols() if asset_type == "Crypto" else load_stock_symbols()
-    symbol = st.selectbox("Ticker", symbols, help="Type to filter")
-with col3:
-    intervals = CRYPTO_INTERVALS if asset_type == "Crypto" else STOCK_INTERVALS
-    interval = st.selectbox("Interval", intervals, index=1)
-with col4:
-    submitted = st.button(
-        "Forecast", type="primary", width="stretch", icon=":material/auto_awesome:"
-    )
+_, center, _ = st.columns([1, 6, 1])
+
+with center:
+    col1, col2, col3, col4 = st.columns([1, 2, 1, 1], vertical_alignment="bottom")
+    with col1:
+        asset_type = st.selectbox("Asset", ["Crypto", "Stock"])
+    with col2:
+        symbols = (
+            load_crypto_symbols() if asset_type == "Crypto" else load_stock_symbols()
+        )
+        symbol = st.selectbox("Ticker", symbols, help="Type to filter")
+    with col3:
+        intervals = CRYPTO_INTERVALS if asset_type == "Crypto" else STOCK_INTERVALS
+        interval = st.selectbox("Interval", intervals, index=1)
+    with col4:
+        submitted = st.button(
+            "Forecast", type="primary", width="stretch", icon=":material/auto_awesome:"
+        )
 
 
 @st.cache_data(show_spinner=False)
@@ -144,39 +157,43 @@ def render_chart(
     return fig
 
 
-try:
-    with st.spinner(f"Loading {symbol}…"):
-        history = load_history(asset_type, symbol, interval)
-except Exception as e:
-    st.error(f"Failed to fetch data: {e}")
-    st.stop()
-
-chart_slot = st.empty()
-caption_slot = st.empty()
-status_slot = st.empty()
-
-chart_slot.plotly_chart(render_chart(history, symbol), width="stretch")
-caption_slot.caption(
-    f"Loaded {len(history)} candles · last: {history.index[-1]:%Y-%m-%d %H:%M} UTC"
-)
-
-forecast_df: pd.DataFrame | None = None
-forecast_error: str | None = None
-if submitted:
+with center:
     try:
-        with status_slot, st.spinner("Generating forecast…"):
-            forecast_df = forecast.predict(history)
+        with st.spinner(f"Loading {symbol}…"):
+            history = load_history(asset_type, symbol, interval)
     except Exception as e:
-        forecast_error = str(e)
-    status_slot.empty()
+        st.error(f"Failed to fetch data: {e}")
+        st.stop()
 
-    if forecast_df is not None:
-        chart_slot.plotly_chart(
-            render_chart(history, symbol, forecast_df), width="stretch"
-        )
-        caption_slot.caption(
-            f"Loaded {len(history)} candles · last: {history.index[-1]:%Y-%m-%d %H:%M} UTC"
-        )
+    st.container(height=24, border=False)
 
-if forecast_error:
-    st.error(f"Forecast failed: {forecast_error}")
+    chart_slot = st.empty()
+    caption_slot = st.empty()
+    status_slot = st.empty()
+
+    chart_slot.plotly_chart(render_chart(history, symbol), width="stretch")
+    caption_slot.caption(
+        f"Loaded {len(history)} candles · last: {history.index[-1]:%Y-%m-%d %H:%M} UTC"
+    )
+
+    forecast_df: pd.DataFrame | None = None
+    forecast_error: str | None = None
+    if submitted:
+        try:
+            with status_slot, st.spinner("Generating forecast…"):
+                forecast_df = forecast.predict(history)
+        except Exception as e:
+            forecast_error = str(e)
+        status_slot.empty()
+
+        if forecast_df is not None:
+            chart_slot.plotly_chart(
+                render_chart(history, symbol, forecast_df), width="stretch"
+            )
+            caption_slot.caption(
+                f"Loaded {len(history)} candles · last: "
+                f"{history.index[-1]:%Y-%m-%d %H:%M} UTC"
+            )
+
+    if forecast_error:
+        st.error(f"Forecast failed: {forecast_error}")
