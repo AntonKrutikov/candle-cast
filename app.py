@@ -10,8 +10,17 @@ from data.symbols import load_crypto_symbols, load_stock_symbols
 from data.yfinance_source import fetch_ohlcv as fetch_yfinance
 
 st.set_page_config(page_title="CandleCast", layout="wide")
-st.title("CandleCast")
-st.caption("AI-powered price forecasts for crypto and stocks.")
+
+_primary = st.get_option("theme.primaryColor")
+with st.container(horizontal=True, vertical_alignment="center"):
+    st.image("assets/logo.svg", width=128)
+    st.markdown(
+        f'<h1 style="margin:0;padding:0;">Candle<span style="color:{_primary}">Cast</span></h1>',
+        unsafe_allow_html=True,
+    )
+st.caption(
+    "From ticker to forecast in seconds — AI-powered price predictions for crypto and stock markets."
+)
 
 CRYPTO_INTERVALS = ["15m", "1h", "4h", "1d"]
 STOCK_INTERVALS = ["30m", "1h", "1d"]
@@ -26,9 +35,12 @@ with col3:
     intervals = CRYPTO_INTERVALS if asset_type == "Crypto" else STOCK_INTERVALS
     interval = st.selectbox("Interval", intervals, index=1)
 with col4:
-    submitted = st.button("Forecast", type="primary", width="stretch")
+    submitted = st.button(
+        "Forecast", type="primary", width="stretch", icon=":material/auto_awesome:"
+    )
 
 
+@st.cache_data(show_spinner=False)
 def load_history(asset_type: str, symbol: str, interval: str) -> pd.DataFrame:
     if asset_type == "Crypto":
         return fetch_binance(symbol, interval=interval, limit=500)
@@ -51,8 +63,10 @@ def render_chart(
                 low=history["low"],
                 close=history["close"],
                 name="History",
-                increasing_line_color="#26a69a",
-                decreasing_line_color="#ef5350",
+                increasing_line_color="#0ECB81",
+                decreasing_line_color="#F6465D",
+                increasing_fillcolor="#0ECB81",
+                decreasing_fillcolor="#F6465D",
             )
         ]
     )
@@ -66,16 +80,18 @@ def render_chart(
                 low=forecast_df["low"],
                 close=forecast_df["close"],
                 name="Forecast",
-                increasing_line_color="#42a5f5",
-                decreasing_line_color="#ab47bc",
-                opacity=0.7,
+                increasing_line_color="#F0B90B",
+                decreasing_line_color="#7A4DFF",
+                increasing_fillcolor="#F0B90B",
+                decreasing_fillcolor="#7A4DFF",
+                opacity=0.75,
             )
         )
         fig.add_vline(
             x=history.index[-1],
             line_width=1,
             line_dash="dash",
-            line_color="rgba(200,200,200,0.6)",
+            line_color="rgba(240,185,11,0.6)",
         )
 
     tail = min(tail, len(history))
@@ -92,35 +108,75 @@ def render_chart(
         hi = float(visible_hist["high"].max())
     pad = (hi - lo) * 0.05 or hi * 0.01
 
+    if forecast_df is not None and not forecast_df.empty:
+        title = (
+            f"{symbol} — history "
+            f"<span style='color:{_primary}'>"
+            f"+ forecast · {len(forecast_df)} candles ahead</span>"
+        )
+    else:
+        title = f"{symbol} — history"
+
     fig.update_layout(
-        title=f"{symbol} — history" + (" + forecast" if forecast_df is not None else ""),
+        title=title,
         xaxis_title="Time (UTC)",
         yaxis_title="Price",
         xaxis_rangeslider_visible=False,
-        xaxis=dict(range=[x_start, x_end], autorange=False),
-        yaxis=dict(range=[lo - pad, hi + pad], autorange=False, fixedrange=False),
+        xaxis=dict(
+            range=[x_start, x_end],
+            autorange=False,
+            gridcolor="#2B3139",
+            zerolinecolor="#2B3139",
+        ),
+        yaxis=dict(
+            range=[lo - pad, hi + pad],
+            autorange=False,
+            fixedrange=False,
+            gridcolor="#2B3139",
+            zerolinecolor="#2B3139",
+        ),
         height=600,
+        paper_bgcolor="#181A20",
+        plot_bgcolor="#181A20",
+        font=dict(color="#EAECEF", family="Inter, -apple-system, Segoe UI, sans-serif"),
+        legend=dict(bgcolor="rgba(30,35,41,0.8)", bordercolor="#2B3139", borderwidth=1),
     )
     return fig
 
 
+try:
+    with st.spinner(f"Loading {symbol}…"):
+        history = load_history(asset_type, symbol, interval)
+except Exception as e:
+    st.error(f"Failed to fetch data: {e}")
+    st.stop()
+
+chart_slot = st.empty()
+caption_slot = st.empty()
+status_slot = st.empty()
+
+chart_slot.plotly_chart(render_chart(history, symbol), width="stretch")
+caption_slot.caption(
+    f"Loaded {len(history)} candles · last: {history.index[-1]:%Y-%m-%d %H:%M} UTC"
+)
+
+forecast_df: pd.DataFrame | None = None
+forecast_error: str | None = None
 if submitted:
     try:
-        with st.spinner(f"Fetching {symbol}…"):
-            history = load_history(asset_type, symbol, interval)
+        with status_slot, st.spinner("Generating forecast…"):
+            forecast_df = forecast.predict(history)
     except Exception as e:
-        st.error(f"Failed to fetch data: {e}")
-    else:
-        try:
-            with st.spinner("Generating forecast…"):
-                forecast_df = forecast.predict(history)
-        except Exception as e:
-            st.error(f"Forecast failed: {e}")
-            st.plotly_chart(render_chart(history, symbol), width="stretch")
-            st.caption(f"Loaded {len(history)} candles · last: {history.index[-1]}")
-        else:
-            st.plotly_chart(render_chart(history, symbol, forecast_df), width="stretch")
-            st.caption(
-                f"History: {len(history)} candles (last {history.index[-1]}) · "
-                f"Forecast: {len(forecast_df)} candles ahead"
-            )
+        forecast_error = str(e)
+    status_slot.empty()
+
+    if forecast_df is not None:
+        chart_slot.plotly_chart(
+            render_chart(history, symbol, forecast_df), width="stretch"
+        )
+        caption_slot.caption(
+            f"Loaded {len(history)} candles · last: {history.index[-1]:%Y-%m-%d %H:%M} UTC"
+        )
+
+if forecast_error:
+    st.error(f"Forecast failed: {forecast_error}")
